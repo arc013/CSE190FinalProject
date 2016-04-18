@@ -52,6 +52,7 @@ class MapServer():
         (randomotherwise).
         """
         move = list(request.move)
+	print move
         if self.config['uncertain_motion']:
             roll = r.uniform(0,1)
             if roll < self.config["prob_move_correct"]:

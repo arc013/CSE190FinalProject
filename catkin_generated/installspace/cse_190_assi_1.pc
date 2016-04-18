@@ -1,0 +1,8 @@
+prefix=/usr/local
+
+Name: cse_190_assi_1
+Description: Description of cse_190_assi_1
+Version: 0.0.0
+Cflags: -I/usr/local/include
+Libs: -L/usr/local/lib 
+Requires: 

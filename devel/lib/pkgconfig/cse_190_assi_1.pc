@@ -1,0 +1,8 @@
+prefix=/home/arnold1992/catkin_ws/src/CSE_190_PA1/devel
+
+Name: cse_190_assi_1
+Description: Description of cse_190_assi_1
+Version: 0.0.0
+Cflags: -I/home/arnold1992/catkin_ws/src/CSE_190_PA1/devel/include
+Libs: -L/home/arnold1992/catkin_ws/src/CSE_190_PA1/devel/lib 
+Requires: 
