@@ -21,7 +21,9 @@ height=len(read_config()["pipe_map"])
 length=len(read_config()["pipe_map"][0])
 numR= None
 numS= None
-numCell=height*length
+numCells=height*length
+totalR=0
+totalS=0
 
 
 
@@ -30,18 +32,36 @@ numCell=height*length
 
 
 def callBack(data):
-	print "tempperature is: ", data.temperature
-
-	global i, height, length, cleanMap, ProbMap, localMap, numCell
+	
+	global i, height, length, cleanMap, ProbMap, localMap, numCells, totalR
+	global totalS
 	rospy.wait_for_service('requestTexture')
+	print "tempperature is: ", data.temperature
+	print "numR and numS are:", numR, numS
+	totalR=0
+	totalS=0
+
         try:
            robotTexture = rospy.ServiceProxy('requestTexture', requestTexture)
 	   print robotTexture().data
 
 
 	   probTex=read_config()["prob_tex_correct"]
-	   kForR=(numR*probTex)/(length*height)+(numS*(1-probTex))/(length*height)
-	   kForS=(numR*(1-probTex))/(length*height)+(numS*probTex)/(length*height)
+	   for j in range (0, height):
+	     for k in range (0, length):
+		     if textureMap[j][k]=='R':
+		        totalR+=localMap[j][k]
+		     else:
+		        totalS+=localMap[j][k]
+		     
+
+   		     
+# print "totalR and totalS", totalR, totalS
+# print localMap
+
+	   kForR=(numR*probTex)*(totalR/numR)+(numS*(1-probTex))*(totalS/numS)
+	   kForS=(numR*(1-probTex))*(totalR/numR)+(numS*probTex)*(totalS/numS)
+#print "k for R and S:", kForR, kForS
 	   consK=kForS
 	   tex='S'
 	   if robotTexture().data=='R':
@@ -50,9 +70,12 @@ def callBack(data):
 	   for j in range (0, height):
 	      for k in range (0, length):
 		      if textureMap[j][k]==tex:
-		         localMap[j][k]*= probTex/(consK)
+		         localMap[j][k]*= probTex/consK
 		      else:
 		         localMap[j][k]*= (1-probTex)/consK
+
+
+
 
 
 
@@ -68,12 +91,12 @@ def callBack(data):
            except rospy.ServiceException, e:
 	      print "Service call failed: %s"%e
 
-	   print localMap
+           print localMap
 	   mySum=0.0
-	   for j in range (0, height):
-	      for k in range (0, length):
-		      mySum+=localMap[j][k]
-	   print mySum
+	   for y in range (0, height):
+	      for z in range (0, length):
+		      mySum+=localMap[y][z]
+	   print "sum is   :", mySum
 
 	   robotMove(move)
 	   probMove=read_config()["prob_move_correct"]
