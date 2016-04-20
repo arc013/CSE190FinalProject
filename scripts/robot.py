@@ -2,14 +2,23 @@
 # license removed for brevity
 import rospy
 import sys
-from std_msgs.msg import Bool
+import math
+from std_msgs.msg import Bool, String, Float32
 from cse_190_assi_1.msg import temperatureMessage
 from cse_190_assi_1.srv import requestTexture 
 from cse_190_assi_1.srv import requestMapData, moveService
 from read_config import read_config
+from cse_190_assi_1.msg import RobotProbabilities
 
 i=0
 pubForShutdown = rospy.Publisher('/map_node/sim_complete', Bool, queue_size=10)
+pubForProb=rospy.Publisher('/results/probabilities', RobotProbabilities, queue_size=10)
+
+pubForTemp=rospy.Publisher('/results/temperature_data', Float32, queue_size=10)
+pubForTex=rospy.Publisher('/results/texture_data', String, queue_size=10)
+pubForComplete=rospy.Publisher('/map_node/sim_complete', Bool, queue_size=10)
+
+
 tempMap=read_config()["pipe_map"]
 textureMap=read_config()["texture_map"]
 localMap=[]
@@ -32,18 +41,75 @@ totalS=0
 
 
 def callBack(data):
-	
+		
 	global i, height, length, cleanMap, ProbMap, localMap, numCells, totalR
-	global totalS
+	global totalS, pubForShutdown, pubForProb, pubForTemp, pubForTex, numR
+	global pubForComplete, numS
+	pubForTemp.publish(data.temperature)
+	tempNoiseStd=read_config()["temp_noise_std_dev"]
+	numMoves=len(read_config()["move_list"])
+
+
+
+#print localMap
+	
+        #temperature
+	for j in range (0, height):
+	     for k in range (0, length):
+		     if tempMap[j][k]=='C':
+		        temp=20
+		     elif tempMap[j][k]=='-':
+		        temp=25
+		     else:
+		        temp=40
+		     gaussian=(1.0/(tempNoiseStd*math.sqrt(2*math.pi)))*math.pow(math.e,
+				     -1.0*math.pow((data.temperature-temp),2)/(2*math.pow(tempNoiseStd,
+						     2)))
+		   
+# average=(gaussian+localMap[j][k]/2)
+	             localMap[j][k]*=gaussian
+
+
+
+
+	totalSum=0
+	for j in range (0, height):
+		for k in range (0, length):
+			totalSum+=localMap[j][k]
+
+
+#print "totalSum: ", totalSum
+	for j in range (0, height):
+		for k in range (0, length):
+			localMap[j][k]/=totalSum
+
+	
+	
+
+
+
+
+
+        #texture 
 	rospy.wait_for_service('requestTexture')
-	print "tempperature is: ", data.temperature
-	print "numR and numS are:", numR, numS
+# print "tempperature is: ", data.temperature
+#	print "numR and numS are:", numR, numS
 	totalR=0
 	totalS=0
 
         try:
            robotTexture = rospy.ServiceProxy('requestTexture', requestTexture)
-	   print robotTexture().data
+	   pubForTex.publish(robotTexture().data)
+#  print robotTexture().data
+
+
+
+#test1=[]
+#test1+=[robotTexture().data]
+#print test1
+
+
+
 
 
 	   probTex=read_config()["prob_tex_correct"]
@@ -70,80 +136,117 @@ def callBack(data):
 	   for j in range (0, height):
 	      for k in range (0, length):
 		      if textureMap[j][k]==tex:
-		         localMap[j][k]*= probTex/consK
+		         localMap[j][k]*= probTex
 		      else:
-		         localMap[j][k]*= (1-probTex)/consK
+		         localMap[j][k]*= (1-probTex)
+
+           totalSum=0
+           for j in range (0, height):
+	     for k in range (0, length):
+		     totalSum+=localMap[j][k]
+	   for j in range (0, height):
+	     for k in range (0, length):
+		     localMap[j][k]/=totalSum
+
+           
 
 
-
-
-
-
-
-
-	   numMoves=len(read_config()["move_list"])
-           move=read_config()["move_list"][i]
-           i=i+1
-	   rospy.wait_for_service('moveService')
-	   try: 
-              robotMove = rospy.ServiceProxy('moveService',
-					 moveService)
-           except rospy.ServiceException, e:
-	      print "Service call failed: %s"%e
-
-           print localMap
+	   
+#print localMap
 	   mySum=0.0
 	   for y in range (0, height):
 	      for z in range (0, length):
 		      mySum+=localMap[y][z]
-	   print "sum is   :", mySum
+#  print "sum is   :", mySum
+           # print localMap
 
-	   robotMove(move)
+	   if i>= numMoves: 
+	      result=[]
+              for j in range (0, height):
+		   result+=localMap[j]
+#   print result
+#	   print localMap
+	      pubForProb.publish(result)
+	      pubForComplete.publish(True)
+#pubForShutdown.publish(True)
+	      rospy.sleep(3)
+              rospy.signal_shutdown("No more moves left")
+
+	   
+           
+#i=i+1
+	   rospy.wait_for_service('moveService')
+	   try: 
+              robotMove = rospy.ServiceProxy('moveService',
+					 moveService)
+	      move=read_config()["move_list"][i]
+	      i=i+1
+	      robotMove(move)
+
+           except rospy.ServiceException, e:
+	      print "Service call failed: %s"%e
+
+
 	   probMove=read_config()["prob_move_correct"]
 
            #updating belief for moving
 	   possibleMoves=read_config()["possible_moves"]
 	   lengthPossibleMoves=len(read_config()["possible_moves"])
 #print localMap, ProbMap
-	   '''for j in range (0, height):
+	   for j in range (0, height):
 		   for k in range (0, length):
 
 		       #correct move
 		     
-		       xCord= (k+move[0]) % length
-		       yCord= (j+move[1]) % height
+		       xCord= (k+move[1]) % length
+		       yCord= (j+move[0]) % height
 	               ProbMap[yCord][xCord]+=probMove*localMap[j][k]
 		       m=0
                        #incorrect Moves
 		       while m<lengthPossibleMoves:
 		          if possibleMoves[m]!=move:
 #print move, possibleMoves[m]
-			     xCord= (k+possibleMoves[m][0]) % length
-		             yCord=( j+possibleMoves[m][1]) % height
+			     xCord= (k+possibleMoves[m][1]) % length
+		             yCord=( j+possibleMoves[m][0]) % height
 # print "%d %d", xCord, length, yCord, height
 			     ProbMap[yCord][xCord]+=((1-probMove)/(lengthPossibleMoves-1))*localMap[j][k]
-			  m=m+1'''
+			  m=m+1
 
 
 
 	   
-	   
-	   '''for j in range (0, height):
+	   checkSum=0
+	   for j in range (0, height):
 	    for k in range (0, length):
 		    localMap[j][k]=ProbMap[j][k]
-		    ProbMap[j][k]=0'''
+		    ProbMap[j][k]=0
+		    checkSum+=localMap[j][k]
 
 
 
 
 
+           result=[]
+	   
+           for j in range (0, height):
+		   result+=localMap[j]
+        
+	          
 
 
-# print localMap
-	   if i>= numMoves: 
-	      global pubForShutdown
-	      pubForShutdown.publish(True)
-              rospy.signal_shutdown("No more moves left")
+
+
+	
+
+#   print result
+#	   print localMap
+	   pubForProb.publish(result)
+#rospy.sleep(3)
+
+
+
+
+
 
 
 #print "move to pos: ", move
@@ -192,7 +295,7 @@ def robot():
 		      callBack)
 
     rospy.init_node('robot.py', anonymous=True)
-    rate=rospy.Rate(10)
+    rate=rospy.Rate(1)
     while not rospy.is_shutdown():
 	    pub.publish(True)
 	    rate.sleep()
