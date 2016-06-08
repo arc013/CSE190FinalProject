@@ -5,6 +5,12 @@
         ["C","-","H","-","-"],
         ["C","C","H","H","H"]
     ],
+    "color_map": [
+        ["B","R","R","B","B"],
+        ["R","R","B","B","R"],
+        ["R","B","R","R","R"],
+        ["R","B","B","B","R"]
+    ],
     "texture_map": [
         ["S","S","S","S","R"],
         ["R","R","S","R","R"],
@@ -29,6 +35,7 @@
     "starting_pos": [3,3],
     "temp_noise_std_dev": 10,
     "prob_tex_correct": 0.99,
+    "prob_color_correct": 0.9,
     "uncertain_motion": true,
     "prob_move_correct": 0.75,
     "seed": 0

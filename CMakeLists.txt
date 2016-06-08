@@ -51,6 +51,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
    FILES
    temperatureMessage.msg
    RobotProbabilities.msg
+   positionMessage.msg
  )
 
 ## Generate services in the 'srv' folder

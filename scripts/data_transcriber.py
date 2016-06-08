@@ -42,10 +42,12 @@ class RobotLogger():
         self.probability_data = []
 
     def handle_incoming_texture_data(self, message):
+#print message.data
         texture = message.data
         self.texture_data.append(texture)
 
     def handle_incoming_temperature_data(self, message):
+#print message.data
         temperature = message.data
         self.temperature_data.append(temperature)
 

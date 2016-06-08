@@ -5,12 +5,19 @@ import random as r
 import math as m
 import numpy as np
 from copy import deepcopy
+from cse_190_assi_1.msg import positionMessage
 from cse_190_assi_1.srv import requestMapData, moveService
 from read_config import read_config
 
+pubForPos=rospy.Publisher('position', positionMessage, queue_size=1000)
+
+
+
 
 class MapServer():
+    globalPos=None
     def __init__(self):
+	global pubForPos;
         """Read config file and setup ROS things"""
         self.config = read_config()
         self.config["prob_move_correct"] = .75
@@ -26,6 +33,11 @@ class MapServer():
                 self.handle_move_request
         )
         self.pos = self.initialize_position()
+
+	something=positionMessage()
+	something.position=deepcopy(self.pos)
+	pubForPos.publish(something)
+
         r.seed(self.config['seed'])
         print "starting pos: ", self.pos
         rospy.spin()
@@ -67,12 +79,18 @@ class MapServer():
         return []
 
     def make_move(self, move):
+	global pubForPos;
+
         """Changes the robot's position"""
         num_rows = len(self.config['pipe_map'])
         num_cols = len(self.config['pipe_map'][0])
         self.pos[0] = (self.pos[0] + move[0]) % num_rows
         self.pos[1] = (self.pos[1] + move[1]) % num_cols
         #print self.pos
+	something=positionMessage()
+	something.position=deepcopy(self.pos)
+	pubForPos.publish(something)
+
 
 
 if __name__ == '__main__':
